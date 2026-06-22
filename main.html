@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Support Router</title>
+
+  <!-- Tailwind CSS & Lucide Icons via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: "#6366f1", hover: "#818cf8" },
+            ink: { 900: "#070b18", 800: "#0d1326", 700: "#151d36" },
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"SF Mono"', '"Fira Code"', "ui-monospace", "monospace"],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin-custom { animation: spin 0.6s linear infinite; }
+
+    @keyframes pulseIn {
+      0%   { transform: scale(0.6); opacity: 0; }
+      60%  { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pulse-in { animation: pulseIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* Animated aurora gradient background */
+    body {
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(99,102,241,0.25), transparent 60%),
+        radial-gradient(900px 500px at 110% 10%, rgba(34,211,238,0.18), transparent 55%),
+        radial-gradient(800px 700px at 50% 120%, rgba(168,85,247,0.18), transparent 60%),
+        linear-gradient(160deg, #070b18 0%, #0d1326 55%, #0a0f20 100%);
+      background-attachment: fixed;
+    }
+
+    /* Subtle grid texture overlay */
+    .grid-overlay::before {
+      content: "";
+      position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(148,163,184,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(148,163,184,0.04) 1px, transparent 1px);
+      background-size: 44px 44px;
+    }
+
+    .glass {
+      background: rgba(21, 29, 54, 0.55);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+    .glass:hover { border-color: rgba(99,102,241,0.35); }
+
+    .card-accent { position: relative; overflow: hidden; }
+    .card-accent::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .accent-blue::before   { background: linear-gradient(90deg,#6366f1,#22d3ee); }
+    .accent-green::before  { background: linear-gradient(90deg,#10b981,#34d399); }
+    .accent-amber::before  { background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+
+    .glow-btn { box-shadow: 0 0 0 0 rgba(99,102,241,0.6); transition: box-shadow .3s, transform .15s; }
+    .glow-btn:hover { box-shadow: 0 8px 30px -6px rgba(99,102,241,0.6); }
+
+    .field {
+      background: rgba(7,11,24,0.6);
+      border: 1px solid rgba(148,163,184,0.16);
+      color: #e2e8f0;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .field:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.25);
+    }
+    .field::placeholder { color: #64748b; }
+    .field option { background: #0d1326; color: #e2e8f0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .animate-spin-custom, .pulse-in { animation: none; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body class="grid-overlay min-h-screen text-slate-200 antialiased">
+
+  <div class="relative z-10">
+
+    <!-- ===== HEADER ===== -->
+    <header class="px-6 py-5 flex items-center justify-between border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand to-cyan-400 flex items-center justify-center shadow-lg shadow-brand/30">
+          <i data-lucide="life-buoy" class="w-6 h-6 text-white" aria-hidden="true"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold text-white tracking-tight">Customer Support Router</h1>
+          <p class="text-xs text-slate-400 font-mono">AI triage &amp; dispatch console</p>
+        </div>
+      </div>
+      <span class="hidden sm:flex items-center gap-2 text-xs font-mono text-emerald-400">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> ONLINE
+      </span>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+
+      <!-- ===== STATUS BANNER ===== -->
+      <div
+        id="statusBanner"
+        class="hidden items-center gap-2 px-4 py-3 rounded-xl mb-6 text-sm font-medium"
+        role="alert" aria-live="polite" aria-atomic="true"
+      ></div>
+
+      <!-- ===== INPUT SECTION ===== -->
+      <section class="glass rounded-2xl p-6 shadow-2xl mb-8 transition-colors">
+        <h2 class="text-base font-semibold mb-5 flex items-center gap-2 text-white">
+          <i data-lucide="ticket" class="w-5 h-5 text-brand" aria-hidden="true"></i>
+          New Support Ticket
+        </h2>
+
+        <div class="grid grid-cols-1 gap-5">
+          <!-- API Key -->
+          <div>
+            <label for="apiKey" class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+              OpenAI API Key
+            </label>
+            <div class="relative">
+              <input
+                id="apiKey" type="password" autocomplete="off" spellcheck="false"
+                placeholder="Paste your OpenAI API key (sk-...)"
+                aria-describedby="apiKeyHint"
+                class="field w-full px-3.5 py-2.5 pr-11 rounded-lg text-sm font-mono"
+              />
+              <button id="toggleKeyBtn" type="button" aria-label="Show or hide API key"
+                class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-300">
+                <i data-lucide="eye" class="w-4 h-4" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p id="apiKeyHint" class="mt-1.5 text-xs text-slate-500 flex items-center gap-1">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5" aria-hidden="true"></i>
+              Never stored or hardcoded. Leave blank to use local mock data. Get a key at
+              <a href="https://platform.openai.com/" target="_blank" class="text-brand hover:text-brand-hover underline ml-1">platform.openai.com</a>
+            </p>
+          </div>
+
+          <!-- Complaint -->
+          <div>
+            <label for="complaintText" class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+              Customer Complaint
+            </label>
+            <textarea
+              id="complaintText" rows="5"
+              placeholder="Paste the customer's complaint here..."
+              aria-required="true"
+              class="field w-full min-h-[140px] px-3.5 py-3 rounded-lg text-[0.9375rem] resize-y"
+            ></textarea>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex flex-wrap gap-4 items-end">
+            <div class="flex-1 min-w-[200px]">
+              <label for="categorySelect" class="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+                Request Category
+              </label>
+              <select id="categorySelect" aria-label="Select complaint category"
+                class="field w-full px-3.5 py-2.5 rounded-lg text-[0.9375rem] cursor-pointer">
+                <option value="refund">Refund Request</option>
+                <option value="technical">Technical Issue</option>
+                <option value="general">General Inquiry</option>
+              </select>
+            </div>
+
+            <button id="submitBtn" type="button" aria-label="Analyze and route the complaint"
+              class="glow-btn inline-flex items-center justify-center gap-2 px-7 py-2.5 rounded-lg text-[0.9375rem] font-semibold text-white whitespace-nowrap bg-gradient-to-r from-brand to-indigo-500 hover:from-brand-hover hover:to-indigo-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+              <span id="spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin-custom" aria-hidden="true"></span>
+              <i data-lucide="send" class="w-4 h-4" aria-hidden="true" id="submitIcon"></i>
+              <span id="btnLabel">Analyze &amp; Route</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== RESULTS SECTION ===== -->
+      <section id="resultsSection" class="hidden">
+        <h2 class="text-base font-semibold mb-5 flex items-center gap-2 text-white">
+          <i data-lucide="clipboard-check" class="w-5 h-5 text-brand" aria-hidden="true"></i>
+          Processed Results
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <!-- Severity -->
+          <div class="glass card-accent accent-amber rounded-2xl shadow-xl flex flex-col overflow-hidden transition-colors">
+            <div class="px-5 pt-5 pb-3 text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i data-lucide="gauge" class="w-4 h-4" aria-hidden="true"></i> Severity
+            </div>
+            <div class="px-5 pb-5 flex-1" id="severityOutput"></div>
+          </div>
+
+          <!-- Suggested Reply -->
+          <div class="glass card-accent accent-blue rounded-2xl shadow-xl flex flex-col overflow-hidden transition-colors">
+            <div class="px-5 pt-5 pb-3 text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i data-lucide="message-square-reply" class="w-4 h-4" aria-hidden="true"></i> Suggested Reply
+            </div>
+            <div class="px-5 pb-5 flex-1 text-[0.9375rem] text-slate-200 leading-relaxed whitespace-pre-wrap break-words relative">
+              <p id="replyOutput" class="pb-10"></p>
+              <button id="copyReplyBtn" class="absolute bottom-4 right-4 bg-slate-800/85 hover:bg-slate-700/85 text-xs text-indigo-300 border border-slate-700 hover:text-white px-2.5 py-1 rounded transition flex items-center gap-1 font-mono">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy Response
+              </button>
+            </div>
+          </div>
+
+          <!-- Summary -->
+          <div class="glass card-accent accent-green rounded-2xl shadow-xl flex flex-col overflow-hidden transition-colors">
+            <div class="px-5 pt-5 pb-3 text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <i data-lucide="file-text" class="w-4 h-4" aria-hidden="true"></i> Summary
+            </div>
+            <div class="px-5 pb-5 flex-1 text-[0.9375rem] text-slate-300 leading-relaxed whitespace-pre-wrap break-words" id="summaryOutput"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="text-center py-8 px-4 text-xs font-mono text-slate-600">
+      Customer Support Router &mdash; Internship Assessment
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      if (window.lucide && typeof window.lucide.createIcons === "function") {
+        window.lucide.createIcons();
+      }
+
+      // ── DOM REFERENCES ──
+      const apiKeyEl = document.getElementById("apiKey");
+      const toggleKeyBtn = document.getElementById("toggleKeyBtn");
+      const complaintEl = document.getElementById("complaintText");
+      const categoryEl = document.getElementById("categorySelect");
+      const submitBtn = document.getElementById("submitBtn");
+      const spinnerEl = document.getElementById("spinner");
+      const submitIcon = document.getElementById("submitIcon");
+      const btnLabel = document.getElementById("btnLabel");
+      const resultsEl = document.getElementById("resultsSection");
+      const severityOut = document.getElementById("severityOutput");
+      const replyOut = document.getElementById("replyOutput");
+      const summaryOut = document.getElementById("summaryOutput");
+      const statusBanner = document.getElementById("statusBanner");
+      const copyReplyBtn = document.getElementById("copyReplyBtn");
+
+      // ── CONFIGURATION ──
+      const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+      const OPENAI_MODEL = "gpt-4o-mini"; // highly efficient, accurate, fast
+      const FETCH_TIMEOUT_MS = 30000;
+
+      // ── CATEGORY-SPECIFIC PROMPT CONTEXT ──
+      const CATEGORY_CONTEXT = {
+        refund: [
+          "The customer is requesting a refund.",
+          "Evaluate whether the complaint indicates a legitimate refund scenario (defective product, service not rendered, billing error).",
+          "The reply should be empathetic, acknowledge the refund request, and outline next steps (verification, timeline).",
+          "Severity should be 'High' if financial loss is mentioned, 'Medium' if it is a billing dispute, 'Low' if it is general dissatisfaction."
+        ].join(" "),
+        technical: [
+          "The customer is reporting a technical issue.",
+          "Identify the likely technical root cause from the complaint (login failure, crash, data loss, performance degradation, integration error).",
+          "The reply should be professional, confirm the issue is understood, and provide immediate troubleshooting steps or escalation.",
+          "Severity should be 'High' if data loss or complete service outage is described, 'Medium' for degraded functionality, 'Low' for cosmetic or minor UX issues."
+        ].join(" "),
+        general: [
+          "The customer has a general inquiry or feedback.",
+          "Determine whether the inquiry is informational, a feature request, or general feedback.",
+          "The reply should be friendly, helpful, and direct the customer to appropriate resources or next steps.",
+          "Severity should be 'Low' for informational queries, 'Medium' if the customer expresses frustration, 'High' only if there is an implicit urgent need."
+        ].join(" ")
+      };
+
+      // ── LOCAL MOCK RESPONSES ──
+      const MOCK_RESPONSES = {
+        refund: {
+          severity: "Medium",
+          reply: "Thank you for reaching out regarding your refund request. We understand how important this is to you. Our team has reviewed your complaint and will initiate the refund verification process. You can expect an update within 3-5 business days.",
+          summary: "Customer is requesting a refund. Refund verification process initiated; awaiting order details."
+        },
+        technical: {
+          severity: "High",
+          reply: "We apologize for the technical difficulties you are experiencing. Our engineering team has been notified and is actively investigating. In the meantime, please try clearing your browser cache and restarting the application.",
+          summary: "Customer reported a technical issue affecting core functionality. Engineering team alerted."
+        },
+        general: {
+          severity: "Low",
+          reply: "Thank you for contacting us! We appreciate your feedback and are happy to help. Our support documentation covers many common questions.",
+          summary: "Customer submitted a general inquiry or feedback. Directed to self-service resources."
+        }
+      };
+
+      // ── UI HELPERS ──
+      function setStatusBanner(type, message) {
+        statusBanner.className = "hidden items-center gap-2 px-4 py-3 rounded-xl mb-6 text-sm font-medium";
+        statusBanner.textContent = "";
+        if (type === "hidden") return;
+
+        const palette = {
+          fallback: "flex bg-amber-500/15 border border-amber-500/40 text-amber-300",
+          error: "flex bg-red-500/15 border border-red-500/40 text-red-300",
+          success: "flex bg-emerald-500/15 border border-emerald-500/40 text-emerald-300"
+        };
+        statusBanner.className = `items-center gap-2 px-4 py-3 rounded-xl mb-6 text-sm font-medium ${palette[type]}`;
+
+        const badge = document.createElement("span");
+        badge.className = `inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase text-white ${
+          type === "fallback" ? "bg-amber-500" : type === "error" ? "bg-red-500" : "bg-emerald-500"
+        }`;
+        badge.textContent = type === "fallback" ? "⚠ Fallback" : type === "error" ? "✖ Error" : "✔ Live AI";
+
+        const msg = document.createElement("span");
+        msg.textContent = message;
+
+        statusBanner.appendChild(badge);
+        statusBanner.appendChild(msg);
+      }
+
+      function setLoading(loading) {
+        submitBtn.disabled = loading;
+        if (loading) {
+          spinnerEl.classList.remove("hidden");
+          submitIcon.classList.add("hidden");
+          btnLabel.textContent = "Processing…";
+        } else {
+          spinnerEl.classList.add("hidden");
+          submitIcon.classList.remove("hidden");
+          btnLabel.textContent = "Analyze & Route";
+        }
+      }
+
+      function renderResults(data) {
+        severityOut.textContent = "";
+        const pill = document.createElement("span");
+
+        const normalized = (data.severity || "unknown").trim().toLowerCase();
+        const severityMap = {
+          high:   { style: "bg-red-500/20 text-red-300 border border-red-500/40",    label: "High" },
+          medium: { style: "bg-amber-500/20 text-amber-300 border border-amber-500/40", label: "Medium" },
+          low:    { style: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40", label: "Low" }
+        };
+
+        const severity = severityMap[normalized] || severityMap.medium;
+
+        pill.className = `pulse-in inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-sm uppercase tracking-wide ${severity.style}`;
+        pill.setAttribute("aria-label", `Severity level: ${severity.label}`);
+        pill.textContent = "● " + severity.label;
+
+        severityOut.appendChild(pill);
+
+        replyOut.textContent = data.reply || "No reply generated.";
+        summaryOut.textContent = data.summary || "No summary generated.";
+
+        resultsEl.classList.remove("hidden");
+        resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function buildSystemPrompt(category) {
+        const contextBlock = CATEGORY_CONTEXT[category] || CATEGORY_CONTEXT.general;
+        return [
+          "You are an expert customer support routing assistant.",
+          "Analyze the following customer complaint and return a JSON object with exactly three keys:",
+          '  "severity" (string: "High", "Medium", or "Low"),',
+          '  "reply" (string: a professional, empathetic reply to the customer),',
+          '  "summary" (string: a concise internal summary for the support team).',
+          "",
+          "Category-specific instructions:",
+          contextBlock,
+          "",
+          "Respond ONLY with a valid, clean JSON object. Do not wrap in markdown blocks."
+        ].join("\n");
+      }
+
+      function safeJsonExtraction(raw) {
+        let cleaned = String(raw).trim();
+        const fenceOpen = new RegExp("^" + "```" + "(?:json)?\\s*\\n?", "i");
+        const fenceClose = new RegExp("\\n?" + "```" + "\\s*$", "i");
+        cleaned = cleaned.replace(fenceOpen, "").replace(fenceClose, "").trim();
+        return JSON.parse(cleaned);
+      }
+
+      function isValidResponse(obj) {
+        return (
+          obj !== null &&
+          typeof obj === "object" &&
+          typeof obj.severity === "string" &&
+          typeof obj.reply === "string" &&
+          typeof obj.summary === "string"
+        );
+      }
+
+      async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const response = await fetch(url, { ...options, signal: controller.signal });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      }
+
+      async function fetchAnalysis(complaint, category) {
+        const apiKey = apiKeyEl.value.trim();
+
+        if (!apiKey) {
+          return {
+            data: MOCK_RESPONSES[category] || MOCK_RESPONSES.general,
+            isFallback: true,
+            reason: "No API key provided"
+          };
+        }
+
+        const requestBody = {
+          model: OPENAI_MODEL,
+          messages: [
+            { role: "system", content: buildSystemPrompt(category) },
+            { role: "user", content: `Customer complaint:\n"""\n${complaint}\n"""` }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3
+        };
+
+        try {
+          // Confirm OpenAI Key structure prefix
+          if (!apiKey.startsWith("sk-")) {
+            throw new Error("Invalid format. OpenAI API keys must begin with 'sk-'.");
+          }
+
+          const response = await fetchWithTimeout(
+            OPENAI_API_URL,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+              },
+              body: JSON.stringify(requestBody)
+            },
+            FETCH_TIMEOUT_MS
+          );
+
+          if (!response.ok) {
+            let errorDetails = `HTTP ${response.status}`;
+            try {
+              const errJson = await response.json();
+              if (errJson?.error?.message) {
+                errorDetails += ` (${errJson.error.message})`;
+              }
+            } catch (_) {}
+            
+            throw new Error(errorDetails);
+          }
+
+          const json = await response.json();
+          const textContent = json?.choices?.[0]?.message?.content ?? "";
+          if (!textContent) throw new Error("Empty response from API");
+
+          const parsed = safeJsonExtraction(textContent);
+          if (!isValidResponse(parsed)) throw new Error("API response missing required fields");
+
+          return { data: parsed, isFallback: false };
+
+        } catch (err) {
+          console.warn("API Error intercepted:", err.message);
+          let reason = err.message;
+          if (err.name === "AbortError") reason = "Request timeout (30 seconds)";
+
+          return {
+            data: MOCK_RESPONSES[category] || MOCK_RESPONSES.general,
+            isFallback: true,
+            reason: reason
+          };
+        }
+      }
+
+      // ── EVENT HANDLERS ──
+      toggleKeyBtn.addEventListener("click", () => {
+        const isPassword = apiKeyEl.type === "password";
+        apiKeyEl.type = isPassword ? "text" : "password";
+        const icon = toggleKeyBtn.querySelector("[data-lucide]");
+        if (icon) {
+          icon.setAttribute("data-lucide", isPassword ? "eye-off" : "eye");
+          if (window.lucide?.createIcons) window.lucide.createIcons();
+        }
+      });
+
+      submitBtn.addEventListener("click", async () => {
+        const complaint = complaintEl.value.trim();
+        const category = categoryEl.value;
+
+        setStatusBanner("hidden", "");
+        resultsEl.classList.add("hidden");
+
+        if (!complaint) {
+          setStatusBanner("error", "Please enter a customer complaint before submitting.");
+          complaintEl.focus();
+          return;
+        }
+
+        setLoading(true);
+        const result = await fetchAnalysis(complaint, category);
+        setLoading(false);
+
+        if (result.isFallback) {
+          setStatusBanner("fallback", `Live API unavailable: ${result.reason}. Using local mock sandbox data.`);
+        } else {
+          setStatusBanner("success", "Successfully processed by OpenAI GPT AI.");
+        }
+
+        renderResults(result.data);
+      });
+
+      copyReplyBtn.addEventListener("click", () => {
+        const textToCopy = replyOut.textContent;
+        const tempTextArea = document.createElement("textarea");
+        tempTextArea.value = textToCopy;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        
+        try {
+          document.execCommand("copy");
+          const originalText = copyReplyBtn.innerHTML;
+          copyReplyBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Copied!';
+          if (window.lucide) window.lucide.createIcons();
+          setTimeout(() => {
+            copyReplyBtn.innerHTML = originalText;
+            if (window.lucide) window.lucide.createIcons();
+          }, 2000);
+        } catch (err) {
+          console.error("Clipboard write error: ", err);
+        } finally {
+          document.body.removeChild(tempTextArea);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
